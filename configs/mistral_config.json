@@ -1,0 +1,12 @@
+{
+    "mode": "optimize",
+    "train_data_path": "processed_data/python/processed_train.jsonl",
+    "test_data_path": "processed_data/python/processed_test.jsonl",
+    "model_path": "./models/mistral-7b-instruct-v0.2.Q5_K_M.gguf",
+    "log_path": "./logs/mistral",
+    "evaluation_path": "./evaluation/mistral",
+    "batch_size": 1,
+    "max_seq_length": 2048,
+    "max_new_tokens": 1024,
+    "temperature": 0.7
+}
