@@ -15,7 +15,7 @@ conda activate codeopt
 TRAIN_DATA_PATH="processed_data/python/processed_train.jsonl"
 TEST_DATA_PATH="processed_data/python/processed_test.jsonl"
 OUTPUT_PATH="outputs"
-MODEL_NAME="./mistral-7b-instruct-v0.2.Q5_K_M.gguf"
+MODEL_NAME="./models/mistral-7b-instruct-v0.2.Q5_K_M.gguf"
 
 # Command-line arguments
 MODE="optimize"
@@ -30,3 +30,6 @@ python src/main.py \
   --test_data_path $TEST_DATA_PATH \
   --output_path $OUTPUT_PATH \
   --config_path $CONFIG_PATH
+
+
+read -p "Press Enter to exit..."

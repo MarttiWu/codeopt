@@ -26,7 +26,7 @@ def parse_arguments():
     parser.add_argument("--train_data_path", type=str, required=False, help="Path to training dataset.")
     parser.add_argument("--test_data_path", type=str, required=False, help="Path to testing dataset.")
     parser.add_argument("--output_path", type=str, required=True, help="Path to save outputs.")
-    parser.add_argument("--model_path", type=str, default="./models/mistral-7b-instruct-v0.1.Q5_K_M.gguf", help="Path to the GGUF model.")
+    parser.add_argument("--model_path", type=str, default="./models/mistral-7b-instruct-v0.2.Q5_K_M.gguf", help="Path to the GGUF model.")
     parser.add_argument("--config_path", type=str, required=True, help="Path to the configuration JSON file.")
     return parser.parse_args()
 
