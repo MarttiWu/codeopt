@@ -72,3 +72,5 @@ baselines/predictions/
 
 # Ignore run.sh logs (if generated)
 run.sh.log
+
+models/
