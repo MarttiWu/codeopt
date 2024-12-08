@@ -35,28 +35,40 @@ def optimize_code(llama_model, test_loader, config, output_path):
     Optimize code using the GGUF model with llama-cpp-python.
     """
     for i, batch in enumerate(test_loader):
-        if i <= 1:
-            continue
         queries = batch["query"]
 
         for query in queries:
             logging.info(f"Processing query: {query}")
 
             try:
+                # Generate the prompt
                 prompt = (
                     f"You are an expert software engineer tasked with optimizing the following code for efficiency.\n"
+                    f"Return only the optimized code without explanation.\n"
                     f"Code to optimize:\n{query}\n"
                     f"Respond with optimized code only."
                 )
 
                 # Generate response using llama.cpp
-                response = llama_model(prompt, max_tokens=config.get("max_new_tokens", 200))
-                print("response:", response)
-                optimized_code = response["choices"][0]["text"].strip()
+                response = llama_model(prompt, max_tokens=config.get("max_new_tokens", 512))
+
+                print("\n--- Response ---")
+                # print(response)
+
+                # Extract the generated text
+                generated_text = response['choices'][0]['text']
+                optimized_code = generated_text
+                # Split the text to isolate the optimized code
+                # lines = generated_text.split('\n')
+                # optimized_code_lines = [line for line in lines if line.startswith("print(")]  # Adjust logic as needed
+                # optimized_code = '\n'.join(optimized_code_lines)
 
                 print("\n--- Original Code ---")
                 print(query)
                 print("\n--- Optimized Code ---")
+                if not optimized_code:
+                    print("No optimized code generated.")
+                    continue
                 print(optimized_code)
 
                 # Save the result
@@ -68,7 +80,8 @@ def optimize_code(llama_model, test_loader, config, output_path):
             except Exception as e:
                 logging.error(f"Error during optimization: {e}")
                 continue
-        break  # For testing purposes, remove this line to process all queries
+
+        # break  # For testing purposes, remove this line to process all queries
 
 def main():
     """
@@ -90,7 +103,7 @@ def main():
         exit(1)
 
     logging.info("Creating data loaders...")
-    _, test_loader = create_data_loaders(
+    train_loader, test_loader = create_data_loaders(
         train_file=args.train_data_path,
         test_file=args.test_data_path,
         tokenizer=None,  # No tokenizer needed for llama.cpp
@@ -101,25 +114,7 @@ def main():
     logging.info(f"Testing dataset size: {len(test_loader.dataset)}")
 
     if args.mode == "optimize":
-        prompt = (
-            f"You are an expert software engineer tasked with optimizing the following code for efficiency.\n"
-            f"Code to optimize:\n"
-            f"print(((eval(input().replace(*\" *\")) % 3 % 2 * \"Imp\" or \"P\") + \"ossible\"))"
-
-        )
-        response = llama_model(prompt, max_tokens=512)
-        # Extract the generated text from the response
-        generated_text = response['choices'][0]['text']
-
-        # Split the text to isolate the optimized code
-        lines = generated_text.split('\n')
-        optimized_code_lines = [line for line in lines if line.startswith("print(")]
-
-        # Extract and print the optimized code
-        optimized_code = '\n'.join(optimized_code_lines)
-        print("Optimized Code:")
-        print(optimized_code)
-        # optimize_code(llama_model, test_loader, config, args.output_path)
+        optimize_code(llama_model, train_loader, config, args.output_path)
     else:
         logging.error("Invalid mode specified.")
 
