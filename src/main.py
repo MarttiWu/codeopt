@@ -3,18 +3,7 @@ import argparse
 import logging
 import json
 from data_loader import create_data_loaders
-from transformers import pipeline, AutoTokenizer, AutoModelForCausalLM
-from pydantic import BaseModel
-from lmformatenforcer import JsonSchemaParser
-from lmformatenforcer.integrations.transformers import build_transformers_prefix_allowed_tokens_fn
-import torch
-
-if torch.cuda.is_available():
-    device = 0 
-elif torch.backends.mps.is_available():
-    device = "mps" 
-else:
-    device = -1
+from llama_cpp import Llama  # Use llama-cpp-python for GGUF models
 
 def setup_logging(output_path):
     """
@@ -32,33 +21,19 @@ def parse_arguments():
     """
     Parse command-line arguments.
     """
-    parser = argparse.ArgumentParser(description="Run code optimization with Hugging Face pipeline.")
+    parser = argparse.ArgumentParser(description="Run code optimization with GGUF model.")
     parser.add_argument("--mode", type=str, required=True, choices=["optimize"], help="Mode of operation.")
     parser.add_argument("--train_data_path", type=str, required=False, help="Path to training dataset.")
     parser.add_argument("--test_data_path", type=str, required=False, help="Path to testing dataset.")
     parser.add_argument("--output_path", type=str, required=True, help="Path to save outputs.")
-    parser.add_argument("--model_name", type=str, default="mistralai/Mistral-7B-Instruct-v0.3", help="Model name.")
-    parser.add_argument("--device", type=str, default="auto", help="Device for model inference (e.g., 'cuda', 'cpu').")
+    parser.add_argument("--model_path", type=str, default="./models/mistral-7b-instruct-v0.1.Q5_K_M.gguf", help="Path to the GGUF model.")
     parser.add_argument("--config_path", type=str, required=True, help="Path to the configuration JSON file.")
     return parser.parse_args()
 
-# Define the schema for the expected output
-class OptimizedCodeSchema(BaseModel):
-    optimized_code: str
-
-def optimize_code(hf_pipeline, test_loader, config, output_path):
+def optimize_code(llama_model, test_loader, config, output_path):
     """
-    Optimize code using the Hugging Face pipeline with lm-format-enforcer.
+    Optimize code using the GGUF model with llama-cpp-python.
     """
-    # Initialize the JSON schema parser
-    schema_parser = JsonSchemaParser(OptimizedCodeSchema.model_json_schema())
-
-    # Build the prefix_allowed_tokens_fn for enforcing schema compliance
-    prefix_allowed_tokens_fn = build_transformers_prefix_allowed_tokens_fn(
-        hf_pipeline.tokenizer,
-        schema_parser
-    )
-
     for i, batch in enumerate(test_loader):
         if i <= 1:
             continue
@@ -69,30 +44,22 @@ def optimize_code(hf_pipeline, test_loader, config, output_path):
 
             try:
                 prompt = (
+                    f"You are an expert software engineer tasked with optimizing the following code for efficiency.\n"
                     f"Code to optimize:\n{query}\n"
-                    f"You are an expert software engineer tasked with speeding up code for improved efficiency.\n"
-                    f"Ensure the optimized code functionality remains unchanged. "
-                    f"Respond in the following JSON schema: {OptimizedCodeSchema.model_json_schema()}"
+                    f"Respond with optimized code only."
                 )
 
-                output_dict = hf_pipeline(
-                    prompt,
-                    prefix_allowed_tokens_fn=prefix_allowed_tokens_fn,
-                    max_new_tokens=config.get("max_new_tokens", 200),
-                    temperature=config.get("temperature", 0.7),
-                    num_return_sequences=1,
-                )
-
-                result = output_dict[0]['generated_text'][len(prompt):]
-                result = json.loads(result)
-
-                optimized_code = result['optimized_code']
+                # Generate response using llama.cpp
+                response = llama_model(prompt, max_tokens=config.get("max_new_tokens", 200))
+                print("response:", response)
+                optimized_code = response["choices"][0]["text"].strip()
 
                 print("\n--- Original Code ---")
                 print(query)
                 print("\n--- Optimized Code ---")
                 print(optimized_code)
 
+                # Save the result
                 result = {"original_code": query, "optimized_code": optimized_code}
                 output_file = os.path.join(output_path, "optimized_code.jsonl")
                 with open(output_file, "a") as f:
@@ -116,28 +83,17 @@ def main():
     logging.info("Starting code optimization...")
 
     try:
-        tokenizer = AutoTokenizer.from_pretrained(args.model_name, use_auth_token=True)
-        model = AutoModelForCausalLM.from_pretrained(args.model_name, use_auth_token=True)
-
-        hf_pipeline = pipeline(
-            "text-generation",
-            model=model,
-            tokenizer=tokenizer,
-            device=device
-        )
+        # Load GGUF model using llama.cpp
+        llama_model = Llama(model_path=args.model_path, n_threads=4)
     except Exception as e:
-        logging.error(f"Failed to load the model or tokenizer: {e}")
+        logging.error(f"Failed to load the GGUF model: {e}")
         exit(1)
-
-    if hf_pipeline.tokenizer.pad_token is None:
-        hf_pipeline.tokenizer.add_special_tokens({'pad_token': hf_pipeline.tokenizer.eos_token})
-        logging.info("Added pad_token to the tokenizer.")
 
     logging.info("Creating data loaders...")
     _, test_loader = create_data_loaders(
         train_file=args.train_data_path,
         test_file=args.test_data_path,
-        tokenizer=hf_pipeline.tokenizer,
+        tokenizer=None,  # No tokenizer needed for llama.cpp
         batch_size=config['batch_size'],
         max_seq_length=config['max_seq_length'],
     )
@@ -145,7 +101,25 @@ def main():
     logging.info(f"Testing dataset size: {len(test_loader.dataset)}")
 
     if args.mode == "optimize":
-        optimize_code(hf_pipeline, test_loader, config, args.output_path)
+        prompt = (
+            f"You are an expert software engineer tasked with optimizing the following code for efficiency.\n"
+            f"Code to optimize:\n"
+            f"print(((eval(input().replace(*\" *\")) % 3 % 2 * \"Imp\" or \"P\") + \"ossible\"))"
+
+        )
+        response = llama_model(prompt, max_tokens=512)
+        # Extract the generated text from the response
+        generated_text = response['choices'][0]['text']
+
+        # Split the text to isolate the optimized code
+        lines = generated_text.split('\n')
+        optimized_code_lines = [line for line in lines if line.startswith("print(")]
+
+        # Extract and print the optimized code
+        optimized_code = '\n'.join(optimized_code_lines)
+        print("Optimized Code:")
+        print(optimized_code)
+        # optimize_code(llama_model, test_loader, config, args.output_path)
     else:
         logging.error("Invalid mode specified.")
 

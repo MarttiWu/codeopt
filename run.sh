@@ -15,7 +15,7 @@ conda activate codeopt
 TRAIN_DATA_PATH="processed_data/python/processed_train.jsonl"
 TEST_DATA_PATH="processed_data/python/processed_test.jsonl"
 OUTPUT_PATH="outputs"
-MODEL_NAME="mistralai/Mistral-7B-Instruct-v0.3"
+MODEL_NAME="./mistral-7b-instruct-v0.1.Q5_K_M.gguf"
 
 # Command-line arguments
 MODE="optimize"
@@ -29,6 +29,4 @@ python src/main.py \
   --train_data_path $TRAIN_DATA_PATH \
   --test_data_path $TEST_DATA_PATH \
   --output_path $OUTPUT_PATH \
-  --model_name $MODEL_NAME \
-  --device $DEVICE \
   --config_path $CONFIG_PATH
