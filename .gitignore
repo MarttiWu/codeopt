@@ -1,0 +1,74 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environment
+.env/
+venv/
+*.venv
+
+# MacOS
+.DS_Store
+
+# Jupyter Notebook Checkpoints
+.ipynb_checkpoints/
+
+# Environment variable files
+.env
+*.env
+
+# Logs and temp files
+*.log
+*.out
+*.err
+*.pid
+*.gz
+*.zip
+*.tmp
+
+# Dataset and outputs
+processed_data/
+outputs/
+
+# Model checkpoints and large files
+checkpoints/
+*.h5
+*.ckpt
+*.bin
+
+# Editor and OS files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+Thumbs.db
+
+# Python package files
+*.egg
+*.egg-info/
+dist/
+build/
+pip-wheel-metadata/
+
+# Caches
+.cache/
+*.mypy_cache/
+__pycache__/
+
+# Streamlit temporary files
+.streamlit/
+
+# Ignore baseline predictions
+baselines/predictions/
+
+# Generated JSON
+*.jsonl
+
+# Temporary files created by editors
+*.bak
+*.backup
+
+# Ignore run.sh logs (if generated)
+run.sh.log
