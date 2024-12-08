@@ -21,7 +21,7 @@ MODEL_NAME="mistralai/Mistral-7B-Instruct-v0.3"
 MODE="optimize"
 DEVICE="mps"  # 'mps' is for apple chips. Use 'cuda' for GPU or 'cpu' for CPU
 
-CONFIG_PATH="configs/files/codellama_config.json"
+CONFIG_PATH="configs/files/mistral_config.json"
 
 # Run the main script
 python src/main.py \
