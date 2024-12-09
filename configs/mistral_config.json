@@ -1,7 +1,8 @@
 {
-    "mode": "optimize",
-    "train_data_path": "processed_data/python/processed_train.jsonl",
-    "test_data_path": "processed_data/python/processed_test.jsonl",
+    "mode": "single-pass",
+    "train_data_path": "processed_data/python/train_split.jsonl",
+    "test_data_path": "processed_data/python/test_split.jsonl",
+    "test_cases_path": "processed_data/public_test_cases/",
     "model_path": "./models/mistral-7b-instruct-v0.2.Q5_K_M.gguf",
     "log_path": "./logs/mistral",
     "evaluation_path": "./evaluation/mistral",
