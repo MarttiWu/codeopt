@@ -72,10 +72,9 @@ class Optimizer:
                     # evaluate error and calculate speed up rate
 
                     logging.info("Evaluating query performance...")
-                    query_performance = measure_performance(query_results)
-                    optimized_performance = measure_performance(optimized_results)
-                    logging.info(f"Original Code Performance: {query_performance}")
-                    logging.info(f"Optimized Code Performance: {optimized_performance}") 
+                    performance = measure_performance(query_results,optimized_results)
+                    logging.info("****************************************************************************************")
+                    logging.info(f"Performance: {str(performance)}") 
                                       
                 except (json.JSONDecodeError, KeyError) as e:
                     logging.error(f"Error parsing response: {e}")

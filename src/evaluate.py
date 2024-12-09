@@ -1,44 +1,43 @@
-def measure_performance(results):
+def measure_performance(query_results, optimized_results):
     """
     Calculate Percent Optimized (OPT) and Speedup Rate (SP) metrics.
 
     Args:
-        results (list of dict): A list of dictionaries, where each dictionary contains:
-            - 'correct': Boolean indicating if the test case passed.
-            - 'original_runtime': Runtime of the original code (in ms).
-            - 'optimized_runtime': Runtime of the optimized code (in ms).
+        query_results (list of dict): Results from the original code.
+        optimized_results (list of dict): Results from the optimized code.
 
     Returns:
-        dict: A dictionary with the metrics:
+        dict: A dictionary containing:
             - 'OPT': Percent of optimized programs that meet criteria.
             - 'SP': Speedup rate across all test cases.
     """
-    n = len(results)
+    n = len(query_results)
     if n == 0:
         return {"OPT": 0, "SP": 0}
 
-    total_speedup = 0
     optimized_count = 0
+    total_speedup = 0
 
-    for result in results:
-        original_runtime = result["original_runtime"]
-        optimized_runtime = result["optimized_runtime"]
-        correct = result["correct"]
+    for query_result, optimized_result in zip(query_results, optimized_results):
+        correct_query = query_result["correct"]
+        correct_optimized = optimized_result["correct"]
+        runtime_query = query_result["runtime_ms"]
+        runtime_optimized = optimized_result["runtime_ms"]
 
-        # Calculate Percent Optimized (OPT)
-        if correct and optimized_runtime < original_runtime * 0.9:
+        # Check if optimized code is correct and at least 10% faster
+        if correct_optimized and runtime_optimized < runtime_query * 0.9:
             optimized_count += 1
 
-        # Calculate Speedup Rate (SP)
-        if correct and optimized_runtime <= original_runtime:
-            speedup = original_runtime / optimized_runtime
+        # Speedup calculation
+        if correct_optimized and runtime_optimized <= runtime_query:
+            speedup = runtime_query / runtime_optimized
         else:
-            speedup = 1.0  # Worst-case speedup
+            speedup = 1.0  # Worst-case scenario, no improvement
 
         total_speedup += speedup
 
-    # Compute metrics
-    OPT = (optimized_count / n) * 100
-    SP = total_speedup / n
+    # Calculate metrics
+    OPT = (optimized_count / n) * 100  # Percent Optimized
+    SP = total_speedup / n  # Average Speedup Rate
 
     return {"OPT": OPT, "SP": SP}
