@@ -5,7 +5,9 @@ from llama_cpp import LogitsProcessorList
 from lmformatenforcer import JsonSchemaParser
 from lmformatenforcer.integrations.llamacpp import build_llamacpp_logits_processor, build_token_enforcer_tokenizer_data
 from pydantic import BaseModel
-
+from scipy import optimize
+from evaluate import *
+from exe_code import *
 
 class OptimizedCodeSchema(BaseModel):
     """
@@ -19,6 +21,7 @@ class Optimizer:
         self.llama_model = llama_model
         self.config = config
         self.output_file = os.path.join(config["evaluation_path"], "optimized_code.jsonl")
+        self.speedup = 0
         os.makedirs(config["evaluation_path"], exist_ok=True)
 
         # Set up LM Format Enforcer
@@ -54,7 +57,15 @@ class Optimizer:
                 try:
                     parsed_response = json.loads(generated_text)
                     optimized_code = parsed_response["optimized_code"]
-                    logging.info(f"Optimized Code:\n{optimized_code}")
+                    code_id = find_matching_code(self.config["test_path"], query)
+                    logging.info(f"Code ID: {code_id}")
+                    # original_result, original_runtime, original_memory = execute_code(query)
+                    optimized_result, optimized_runtime, optimized_memory = execute_code(optimized_code)
+                    # evaluate error and calculate speed up rate
+                    self.speedup = measure_performance(optimized_result, optimized_runtime, optimized_memory)
+                    logging.info(f"Optimize result: {optimized_result} ms")
+                    logging.info(f"opt Runtime: {optimized_runtime:.4f} ms")
+                    logging.info(f"opt Memory Usage: {optimized_memory} bytes")                    
                 except (json.JSONDecodeError, KeyError) as e:
                     logging.error(f"Error parsing response: {e}")
                     continue

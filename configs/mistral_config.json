@@ -5,6 +5,7 @@
     "model_path": "./models/mistral-7b-instruct-v0.2.Q5_K_M.gguf",
     "log_path": "./logs/mistral",
     "evaluation_path": "./evaluation/mistral",
+    "test_path": "./processed_data/python/test.jsonl",
     "batch_size": 1,
     "max_seq_length": 2048,
     "max_new_tokens": 1024,
