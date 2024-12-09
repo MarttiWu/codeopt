@@ -66,7 +66,7 @@ def main():
     if config["mode"] == "optimize":
         optimizer = Optimizer(llama_model, config)
         for i, batch in enumerate(test_loader):
-            optimizer.process_batch(batch["query"])
+            optimizer.process_batch(batch["query"], batch["problem_id"], config["test_cases_path"])
     else:
         logging.error("Invalid mode specified.")
 

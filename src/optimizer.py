@@ -31,8 +31,8 @@ class Optimizer:
             build_llamacpp_logits_processor(tokenizer_data, schema_parser)
         ])
 
-    def process_batch(self, queries):
-        for query in queries:
+    def process_batch(self, queries, problem_ids, test_cases_path):
+        for i,query in enumerate(queries):
             logging.info(f"Processing query:\n{query}")
             try:
                 logging.info(f"Original Code:\n{query}")
@@ -40,6 +40,7 @@ class Optimizer:
                 # Generate the prompt
                 prompt = (
                     f"You are an expert software engineer tasked with optimizing the following code for efficiency.\n"
+                    f"The optimized code should be functionally equivalent to the original code and can execute correctly.\n"
                     f"Return only the optimized code without explanation.\n"
                     f"Code to optimize:\n{query}\n"
                 )
@@ -57,15 +58,25 @@ class Optimizer:
                 try:
                     parsed_response = json.loads(generated_text)
                     optimized_code = parsed_response["optimized_code"]
-                    code_id = find_matching_code(self.config["test_path"], query)
-                    logging.info(f"Code ID: {code_id}")
+                    # code_id = find_matching_code(self.config["test_path"], query)
                     # original_result, original_runtime, original_memory = execute_code(query)
-                    optimized_result, optimized_runtime, optimized_memory = execute_code(optimized_code)
+                    logging.info("Problem ID: "+str(problem_ids[i]))
+                    logging.info("Executing original code...")
+                    query_results = execute_code_with_test_cases(query, problem_ids[i], test_cases_path)
+                    logging.info("Executing optimized code...")
+                    optimized_results = execute_code_with_test_cases(optimized_code, problem_ids[i], test_cases_path)
+                    
+                    logging.info("query_results: "+str(query_results))
+                    logging.info("optimized_results: "+str(optimized_results))
+
                     # evaluate error and calculate speed up rate
-                    self.speedup = measure_performance(optimized_result, optimized_runtime, optimized_memory)
-                    logging.info(f"Optimize result: {optimized_result} ms")
-                    logging.info(f"opt Runtime: {optimized_runtime:.4f} ms")
-                    logging.info(f"opt Memory Usage: {optimized_memory} bytes")                    
+
+                    logging.info("Evaluating query performance...")
+                    query_performance = measure_performance(query_results)
+                    optimized_performance = measure_performance(optimized_results)
+                    logging.info(f"Original Code Performance: {query_performance}")
+                    logging.info(f"Optimized Code Performance: {optimized_performance}") 
+                                      
                 except (json.JSONDecodeError, KeyError) as e:
                     logging.error(f"Error parsing response: {e}")
                     continue

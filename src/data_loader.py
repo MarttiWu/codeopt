@@ -8,7 +8,7 @@ class CodeOptimizationDataset(Dataset):
     Custom dataset for loading code optimization examples.
     Each sample contains a query (slow code) and a target (optimized code).
     """
-    def __init__(self, file_path, tokenizer=None, max_seq_length=512):
+    def __init__(self, file_path, tokenizer=None, max_seq_length=2048):
         self.samples = []
         self.tokenizer = tokenizer
         self.max_seq_length = max_seq_length
@@ -23,8 +23,9 @@ class CodeOptimizationDataset(Dataset):
 
     def __getitem__(self, idx):
         sample = self.samples[idx]
-        query = sample["query"]
-        target = sample["reference"]
+        query = sample["code_v0_no_empty_lines"]
+        target = sample["code_v1_no_empty_lines"]
+        problem_id = sample["problem_id"]
 
         if self.tokenizer:
             # Tokenize query and target
@@ -53,6 +54,7 @@ class CodeOptimizationDataset(Dataset):
         else:
             # Return raw text when tokenizer is not available
             return {
+                "problem_id": problem_id,
                 "query": query,
                 "reference": target,
             }
