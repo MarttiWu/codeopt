@@ -69,7 +69,7 @@ class Optimizer:
         top_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:top_n]
         return [train_data_list[i] for i in top_indices]
 
-    def retrieve_similar_examples(self, query, train_loader, top_k=3, bm25_top_n=50):
+    def retrieve_similar_examples(self, query, train_loader, top_k=1, bm25_top_n=50):
         """
         Retrieve top-k examples from train_loader using BM25 preselection and AST-Based and Semantic Embeddings Similarity.
         """
@@ -151,7 +151,7 @@ class Optimizer:
 
 
 
-    def iterative_refinement(self, query, problem_id, test_cases_path, max_iterations):
+    def iterative_refinement(self, query, problem_id, test_cases_path, max_iterations, examples_prompt):
         """
         Perform iterative refinement for optimization.
         """
@@ -162,7 +162,7 @@ class Optimizer:
             logging.info(f"Starting iteration {iteration + 1} for Problem ID: {problem_id}")
             logging.info(f"Original Code:\n{query}")
             try:
-                prompt = self._generate_prompt(current_code)
+                prompt = self._generate_prompt(current_code, examples_prompt)
                 response = self.llama_model(
                     prompt,
                     logits_processor=self.logits_processors,
