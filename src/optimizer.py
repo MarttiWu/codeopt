@@ -253,6 +253,7 @@ class Optimizer:
                 # Update the best performance
                 if performance["OPT"] + performance["SP"] > best_performance["OPT"] + best_performance["SP"]:
                     best_performance = performance
+                    self._save_result(query, optimized_code)
 
                 # Update current code for the next iteration
                 feedback = self._generate_feedback(query_results, optimized_results)
@@ -263,7 +264,6 @@ class Optimizer:
                 break
 
         logging.warning(f"Reached maximum iterations for Problem ID: {problem_id}.")
-        self._save_result(query, current_code)
         return best_performance
 
     def _generate_feedback(self, query_results, optimized_results):
