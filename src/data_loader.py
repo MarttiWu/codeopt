@@ -1,6 +1,10 @@
+import logging
 import os
+import random
+from re import S
 import jsonlines
 from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Subset
 
 
 class CodeOptimizationDataset(Dataset):
@@ -71,3 +75,11 @@ def create_data_loaders(train_file, test_file, tokenizer=None, batch_size=32, ma
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
     return train_loader, test_loader
+
+def create_random_subset(dataset, subset_size, seed = 42):
+    if subset_size > len(dataset):
+        logging.warning("Subset size is larger than the dataset size. Returning the full dataset.")
+        subset_size = len(dataset)
+    random.seed(seed)
+    indices = random.sample(range(len(dataset)), subset_size)
+    return Subset(dataset, indices)

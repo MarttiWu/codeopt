@@ -10,3 +10,5 @@ python src/split_dataset.py
 
 # Run the main script
 python src/main.py --config_path $CONFIG_PATH
+
+read -p "Press enter to continue"
