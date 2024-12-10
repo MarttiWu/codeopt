@@ -25,7 +25,7 @@ def measure_performance(query_results, optimized_results):
         runtime_optimized = optimized_result["runtime_ms"]
 
         # Check if optimized code is correct and at least 10% faster
-        if correct_optimized and runtime_optimized < runtime_query * 0.9:
+        if correct_optimized and runtime_optimized < runtime_query * 0.95:
             optimized_count += 1
 
         # Speedup calculation

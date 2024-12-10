@@ -1,5 +1,5 @@
 {
-    "mode": "iterative",
+    "mode": "single-pass",
     "train_data_path": "processed_data/python/train_split.jsonl",
     "test_data_path": "processed_data/python/test_split.jsonl",
     "test_cases_path": "processed_data/public_test_cases/",
@@ -11,5 +11,5 @@
     "max_new_tokens": 1024,
     "temperature": 0.7,
     "use_ga": false,
-    "use_fewshot": false
+    "use_fewshot": true
 }

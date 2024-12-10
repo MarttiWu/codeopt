@@ -47,11 +47,14 @@ class Optimizer:
             # Retrieve train_data from train_loader or None
             train_data = train_data_list[i] if train_data_list else None
             
-            # Retrieve examples using AST-Based and Semantic Embeddings Similarity
-            similar_examples = self.retrieve_similar_examples(query, train_loader)
+            if self.config["use_fewshot"]:
+                # Retrieve examples using AST-Based and Semantic Embeddings Similarity
+                similar_examples = self.retrieve_similar_examples(query, train_loader)
 
-            # Include retrieved examples in the prompt for few-shot learning
-            examples_prompt = self.format_examples(similar_examples)
+                # Include retrieved examples in the prompt for few-shot learning
+                examples_prompt = self.format_examples(similar_examples)
+            else:
+                examples_prompt = ""
 
             if mode == "single-pass":
                 performance = self.single_pass_optimization(query, problem_ids[i], test_cases_path, examples_prompt)
