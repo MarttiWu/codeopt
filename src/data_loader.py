@@ -30,6 +30,7 @@ class CodeOptimizationDataset(Dataset):
         query = sample["code_v0_no_empty_lines"]
         target = sample["code_v1_no_empty_lines"]
         problem_id = sample["problem_id"]
+        diff = sample["diff"]
 
         if self.tokenizer:
             # Tokenize query and target
@@ -54,6 +55,7 @@ class CodeOptimizationDataset(Dataset):
                 "labels": target_tokens["input_ids"].squeeze(0),
                 "query": query,
                 "reference": target,
+                "diff": diff,
             }
         else:
             # Return raw text when tokenizer is not available
@@ -61,6 +63,8 @@ class CodeOptimizationDataset(Dataset):
                 "problem_id": problem_id,
                 "query": query,
                 "reference": target,
+                "target": target,
+                "diff": diff,
             }
 
 
