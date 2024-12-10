@@ -7,7 +7,7 @@ from data_loader import create_data_loaders, create_random_subset
 from llama_cpp import Llama
 from optimizer import Optimizer
 from torch.utils.data import DataLoader
-
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 def setup_logging(log_path):
     """
@@ -85,7 +85,7 @@ def main():
             batch["problem_id"], 
             config["test_cases_path"], 
             mode=config["mode"], 
-            max_iterations=5, 
+            max_iterations=2, 
             train_loader=train_loader
         )
         list_sp.append(performance["SP"])

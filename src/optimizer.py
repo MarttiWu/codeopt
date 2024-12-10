@@ -36,19 +36,27 @@ class Optimizer:
         """
         Process a batch of queries with either single-pass or iterative refinement.
         """
+        performance = {}
+        
+        # Convert train_loader to a list for subscriptable access if needed
+        train_data_list = list(train_loader) if train_loader else []
+
         for i, query in enumerate(queries):
             logging.info(f"Processing query for Problem ID: {problem_ids[i]}")
+            
+            # Retrieve train_data from train_loader or None
+            train_data = train_data_list[i] if train_data_list else None
             
             # Retrieve examples using AST-Based and Semantic Embeddings Similarity
             similar_examples = self.retrieve_similar_examples(query, train_loader)
 
             # Include retrieved examples in the prompt for few-shot learning
             examples_prompt = self.format_examples(similar_examples)
-            
+
             if mode == "single-pass":
-                performance  = self.single_pass_optimization(query, problem_ids[i], test_cases_path, examples_prompt)
+                performance = self.single_pass_optimization(query, problem_ids[i], test_cases_path, examples_prompt)
             elif mode == "iterative":
-                performance = self.iterative_refinement(query, problem_ids[i], test_cases_path, max_iterations, examples_prompt)
+                performance = self.iterative_refinement(query, problem_ids[i], test_cases_path, max_iterations, examples_prompt, train_data)
             else:
                 logging.error(f"Invalid mode: {mode}. Please choose 'single-pass' or 'iterative'.")
 
@@ -111,13 +119,18 @@ class Optimizer:
             prompt += "\n".join(example["diff"][0]) + "\n\n"
         return prompt
 
-    def single_pass_optimization(self, query, problem_id, test_cases_path, examples_prompt=""):
+    def single_pass_optimization(self, query, problem_id, test_cases_path, examples_prompt="", train_data=None):
         """
         Perform single-pass optimization on a query.
         """
         try:
             logging.info(f"Original Code:\n{query}")
-            prompt = self._generate_prompt(query, examples_prompt)
+
+            # Include the train_data["diff"] in the prompt for GO-CoT
+            diff_context = self.format_diff(train_data["diff"]) if train_data and "diff" in train_data else ""
+
+            # Generate the GO-CoT Prompt
+            prompt = self._generate_prompt(query, examples_prompt, diff_context)
 
             # Generate optimized code
             response = self.llama_model(
@@ -131,38 +144,65 @@ class Optimizer:
 
             # Execute and evaluate
             performance = self._execute_and_evaluate(query, optimized_code, problem_id, test_cases_path)
-            
             return performance
-            
+
         except Exception as e:
             logging.error(f"Error during single-pass optimization: {e}")
 
-    def _generate_prompt(self, code, examples_prompt):
+    def format_diff(self, diff):
         """
-        Generate a prompt for LLM to optimize code with few-shot examples.
+        Format the diff field into a string for inclusion in the prompt.
+        """
+        if not diff:
+            return "No difference available."
+        
+        formatted_diff = ""
+        for line in diff:
+            formatted_diff += f"{line[0]}\n"
+        return formatted_diff
+
+    def _generate_prompt(self, code, examples_prompt, diff_context=""):
+        """
+        Generate a GO-CoT prompt for LLM to optimize code with provided diff.
         """
         return (
-            f"{examples_prompt}"
-            f"You are an expert software engineer tasked with optimizing the following code for efficiency.\n"
-            f"The optimized code should be functionally equivalent to the original code and execute correctly.\n"
-            f"Return only the optimized code without explanation.\n"
-            f"Code to optimize:\n{code}\n"
+            f"{examples_prompt}\n"
+            f"## Task Description:\n"
+            f"You are tasked with improving the efficiency of the provided code. Follow the steps below:\n"
+            f"1. **Crossover**: Analyze the original code and the optimizations applied in the existing versions.\n"
+            f"2. **Mutation**: Identify any additional optimization opportunities that have not been utilized.\n"
+            f"3. **Generation**: Apply the identified optimization methods to create a new optimized code snippet.\n\n"
+            f"## Requirements:\n"
+            f"- The generated code must be valid Python code without syntax errors.\n"
+            f"- It must preserve the functionality of the original code.\n\n"
+            f"## Reasoning Specification:\n"
+            f"1. Analyze the original code and the optimizations applied: <answer>.\n"
+            f"2. Identify additional opportunities: <answer>.\n"
+            f"3. Explain the applied optimizations and generate new code:\n"
+            f"```\n<optimized_code>\n```\n\n"
+            f"## Input Placeholder:\n"
+            f"Slow code:\n{code}\n\n"
+            f"### Diff Context:\n{diff_context}\n"
         )
 
 
 
-    def iterative_refinement(self, query, problem_id, test_cases_path, max_iterations, examples_prompt):
+    def iterative_refinement(self, query, problem_id, test_cases_path, max_iterations, examples_prompt, train_data=None):
         """
         Perform iterative refinement for optimization.
         """
         current_code = query
         best_performance = {"OPT": 0, "SP": 1.0}
 
+        # Include the train_data["diff"] in the prompt for GO-CoT
+        diff_context = self.format_diff(train_data["diff"]) if train_data and "diff" in train_data else ""
+
         for iteration in range(max_iterations):
             logging.info(f"Starting iteration {iteration + 1} for Problem ID: {problem_id}")
-            logging.info(f"Original Code:\n{query}")
+            logging.info(f"Original Code:\n{current_code}")
             try:
-                prompt = self._generate_prompt(current_code, examples_prompt)
+                # Generate the prompt with diff context
+                prompt = self._generate_prompt(current_code, examples_prompt, diff_context)
                 response = self.llama_model(
                     prompt,
                     logits_processor=self.logits_processors,
@@ -171,31 +211,26 @@ class Optimizer:
                 generated_text = response['choices'][0]['text'].strip()
                 parsed_response = json.loads(generated_text)
                 optimized_code = parsed_response["optimized_code"]
-                # log the result
-                logging.info(f"iter Optimized Code:\n{optimized_code}")
+
+                # Log the result
+                logging.info(f"Iteration Optimized Code:\n{optimized_code}")
                 
                 # Execute and evaluate
                 query_results = execute_code_with_test_cases(current_code, problem_id, test_cases_path)
-                #log the result
-                logging.info(f"iter Query Results: {query_results}")
-                
                 optimized_results = execute_code_with_test_cases(optimized_code, problem_id, test_cases_path)
-                #log the result
-                logging.info(f"iter Optimized Results: {optimized_results}")
-                
                 performance = measure_performance(query_results, optimized_results)
                 logging.info(f"Iteration {iteration + 1} Performance: {performance}")
-  
+
                 # Check for success criteria
                 if performance["OPT"] == 100.0:
                     logging.info(f"Optimization successful after {iteration + 1} iterations.")
                     self._save_result(query, optimized_code)
-                    return
+                    return performance
 
-                # in order to return te best performance, add up both opt and sp to check if the current performance is better
+                # Update the best performance
                 if performance["OPT"] + performance["SP"] > best_performance["OPT"] + best_performance["SP"]:
-                    best_performance = performance                    
-                
+                    best_performance = performance
+
                 # Update current code for the next iteration
                 feedback = self._generate_feedback(query_results, optimized_results)
                 current_code = optimized_code + "\n\n# Feedback for next iteration:\n" + feedback
@@ -206,7 +241,6 @@ class Optimizer:
 
         logging.warning(f"Reached maximum iterations for Problem ID: {problem_id}.")
         self._save_result(query, current_code)
-
         return best_performance
 
     def _generate_feedback(self, query_results, optimized_results):
