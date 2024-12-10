@@ -65,7 +65,7 @@ def main():
 
     logging.info(f"Testing dataset size: {len(test_loader.dataset)}")
 
-    subset_size = 1
+    subset_size = 2
     test_subset = create_random_subset((test_loader.dataset), subset_size)
     test_loader = DataLoader(test_subset, batch_size=config["batch_size"], shuffle=False)
     logging.info(f"Limited testing dataset size: {len(test_loader.dataset)}")
