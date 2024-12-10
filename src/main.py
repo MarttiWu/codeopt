@@ -49,7 +49,7 @@ def main():
 
     try:
         # Load GGUF model using llama.cpp
-        llama_model = Llama(model_path=config["model_path"], n_threads=4)
+        llama_model = Llama(model_path=config["model_path"], n_threads=4, n_ctx=8192)
     except Exception as e:
         logging.error(f"Failed to load the GGUF model: {e}")
         exit(1)
@@ -79,16 +79,23 @@ def main():
         logging.info("**************************")
         logging.info(f"Processing batch {i}...")
         logging.info("**************************")
-        performance = optimizer.process_batch(batch["query"], batch["problem_id"], config["test_cases_path"], mode=config["mode"])
+
+        performance = optimizer.process_batch(
+            batch["query"], 
+            batch["problem_id"], 
+            config["test_cases_path"], 
+            mode=config["mode"], 
+            max_iterations=5, 
+            train_loader=train_loader
+        )
         list_sp.append(performance["SP"])
         list_opt.append(performance["OPT"])
-        
+
     # calculate the average of the SP and OPT
     avg_sp = sum(list_sp) / len(list_sp)
     avg_opt = sum(list_opt) / len(list_opt)
     logging.info(f"Average Speedup Rate: {avg_sp}")
     logging.info(f"Average Percent Optimized: {avg_opt}")
-    
 
 if __name__ == "__main__":
     main()

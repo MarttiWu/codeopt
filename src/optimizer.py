@@ -7,6 +7,8 @@ from lmformatenforcer.integrations.llamacpp import build_llamacpp_logits_process
 from pydantic import BaseModel
 from measure_performance import *
 from executor import *
+from sample_selection.similarity import ast_similarity, SemanticSimilarity
+from rank_bm25 import BM25Okapi
 
 
 class OptimizedCodeSchema(BaseModel):
@@ -30,28 +32,92 @@ class Optimizer:
             build_llamacpp_logits_processor(tokenizer_data, schema_parser)
         ])
 
-    def process_batch(self, queries, problem_ids, test_cases_path, mode="single-pass", max_iterations=5):
+    def process_batch(self, queries, problem_ids, test_cases_path, mode="single-pass", max_iterations=5, train_loader=None):
         """
         Process a batch of queries with either single-pass or iterative refinement.
         """
         for i, query in enumerate(queries):
             logging.info(f"Processing query for Problem ID: {problem_ids[i]}")
+            
+            # Retrieve examples using AST-Based and Semantic Embeddings Similarity
+            similar_examples = self.retrieve_similar_examples(query, train_loader)
+
+            # Include retrieved examples in the prompt for few-shot learning
+            examples_prompt = self.format_examples(similar_examples)
+            
             if mode == "single-pass":
-                performance  = self.single_pass_optimization(query, problem_ids[i], test_cases_path)
+                performance  = self.single_pass_optimization(query, problem_ids[i], test_cases_path, examples_prompt)
             elif mode == "iterative":
-                performance = self.iterative_refinement(query, problem_ids[i], test_cases_path, max_iterations)
+                performance = self.iterative_refinement(query, problem_ids[i], test_cases_path, max_iterations, examples_prompt)
             else:
                 logging.error(f"Invalid mode: {mode}. Please choose 'single-pass' or 'iterative'.")
 
         return performance
     
-    def single_pass_optimization(self, query, problem_id, test_cases_path):
+    def bm25_preselection(self, train_loader, query_code, top_n=100):
+        """
+        Preselect top-N similar examples using BM25.
+        """
+        # Convert train_loader to a list if it is not already a list
+        train_data_list = list(train_loader)
+        
+        train_code_snippets = [example["query"] for example in train_data_list]
+        bm25 = BM25Okapi([snippet[0].split() for snippet in train_code_snippets])
+        scores = bm25.get_scores(query_code.split())
+        
+        # Get the top-N indices
+        top_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:top_n]
+        return [train_data_list[i] for i in top_indices]
+
+    def retrieve_similar_examples(self, query, train_loader, top_k=3, bm25_top_n=50):
+        """
+        Retrieve top-k examples from train_loader using BM25 preselection and AST-Based and Semantic Embeddings Similarity.
+        """
+        # Step 1: Preselect examples with BM25
+        print("Running BM25 preselection...")
+        bm25_candidates = self.bm25_preselection(train_loader, query, bm25_top_n)
+        print(f"BM25 preselection reduced the search space to {len(bm25_candidates)} examples.")
+
+        # Step 2: Use Semantic Similarity to refine
+        retrieved_examples = []
+        semantic_sim = SemanticSimilarity()
+
+        for train_data in bm25_candidates:
+            train_code = train_data["query"]
+            train_target = train_data["target"]
+
+            sem_sim = semantic_sim.similarity(query, train_code)
+            print("Semantic similarity:", sem_sim)
+            combined_score = sem_sim  # Combine with other metrics if needed
+
+            retrieved_examples.append({
+                "example": train_data,
+                "combined_score": combined_score
+            })
+
+        # Step 3: Sort by combined similarity score
+        retrieved_examples = sorted(retrieved_examples, key=lambda x: x["combined_score"], reverse=True)
+        return [ex["example"] for ex in retrieved_examples[:top_k]]
+
+    def format_examples(self, examples):
+        """
+        Format the retrieved examples into a prompt-friendly format.
+        """
+        prompt = ""
+        for example in examples:
+            prompt += f"### Example Code:\n{example['query']}\n"
+            prompt += f"### Optimized Code:\n{example['target']}\n"
+            prompt += "### Diff:\n"
+            prompt += "\n".join(example["diff"][0]) + "\n\n"
+        return prompt
+
+    def single_pass_optimization(self, query, problem_id, test_cases_path, examples_prompt=""):
         """
         Perform single-pass optimization on a query.
         """
         try:
             logging.info(f"Original Code:\n{query}")
-            prompt = self._generate_prompt(query)
+            prompt = self._generate_prompt(query, examples_prompt)
 
             # Generate optimized code
             response = self.llama_model(
@@ -71,6 +137,20 @@ class Optimizer:
             
         except Exception as e:
             logging.error(f"Error during single-pass optimization: {e}")
+
+    def _generate_prompt(self, code, examples_prompt):
+        """
+        Generate a prompt for LLM to optimize code with few-shot examples.
+        """
+        return (
+            f"{examples_prompt}"
+            f"You are an expert software engineer tasked with optimizing the following code for efficiency.\n"
+            f"The optimized code should be functionally equivalent to the original code and execute correctly.\n"
+            f"Return only the optimized code without explanation.\n"
+            f"Code to optimize:\n{code}\n"
+        )
+
+
 
     def iterative_refinement(self, query, problem_id, test_cases_path, max_iterations):
         """
@@ -127,17 +207,8 @@ class Optimizer:
 
         logging.warning(f"Reached maximum iterations for Problem ID: {problem_id}.")
         self._save_result(query, current_code)
+
         return best_performance
-    def _generate_prompt(self, code):
-        """
-        Generate a prompt for LLM to optimize code.
-        """
-        return (
-            f"You are an expert software engineer tasked with optimizing the following code for efficiency.\n"
-            f"The optimized code should be functionally equivalent to the original code and execute correctly.\n"
-            f"Return only the optimized code without explanation.\n"
-            f"Code to optimize:\n{code}\n"
-        )
 
     def _generate_feedback(self, query_results, optimized_results):
         """
