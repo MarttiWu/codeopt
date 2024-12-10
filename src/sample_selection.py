@@ -6,8 +6,9 @@ class SampleSelection:
         for result in results:
             if result.opt == 1 and result not in self.correct_list:
                 self.correct_list.append(result)
-            e;if self.opt < 1:
+            elif self.opt < 1:
                 self.incorrect_list.append(result)
+        
         
 
     
