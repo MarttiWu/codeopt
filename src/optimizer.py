@@ -130,7 +130,10 @@ class Optimizer:
             diff_context = self.format_diff(train_data["diff"]) if train_data and "diff" in train_data else ""
 
             # Generate the GO-CoT Prompt
-            prompt = self._generate_prompt(query, examples_prompt, diff_context)
+            if self.config["use_ga"]:
+                prompt = self._generate_prompt_ga(query, examples_prompt, diff_context)
+            else:
+                prompt = self._generate_prompt(query, examples_prompt)
 
             # Generate optimized code
             response = self.llama_model(
@@ -161,7 +164,21 @@ class Optimizer:
             formatted_diff += f"{line[0]}\n"
         return formatted_diff
 
-    def _generate_prompt(self, code, examples_prompt, diff_context=""):
+
+    def _generate_prompt(self, code, examples_prompt):
+        """
+        Generate a prompt for LLM to optimize code with few-shot examples.
+        """
+        return (
+            f"{examples_prompt}"
+            f"You are an expert software engineer tasked with optimizing the following code for efficiency.\n"
+            f"The optimized code should be functionally equivalent to the original code and execute correctly.\n"
+            f"Ensure that all test cases pass and aim for at least a 10% improvement in runtime.\n"
+            f"Return only the optimized code without explanation.\n"
+            f"Code to optimize:\n{code}\n"
+        )
+
+    def _generate_prompt_ga(self, code, examples_prompt, diff_context=""):
         """
         Generate a GO-CoT prompt for LLM to optimize code with provided diff.
         """
@@ -202,7 +219,10 @@ class Optimizer:
             logging.info(f"Original Code:\n{current_code}")
             try:
                 # Generate the prompt with diff context
-                prompt = self._generate_prompt(current_code, examples_prompt, diff_context)
+                if self.config["use_ga"]:
+                    prompt = self._generate_prompt_ga(current_code, examples_prompt, diff_context)
+                else:
+                    prompt = self._generate_prompt(current_code, examples_prompt)
                 response = self.llama_model(
                     prompt,
                     logits_processor=self.logits_processors,
