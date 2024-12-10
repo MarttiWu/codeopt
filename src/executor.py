@@ -1,20 +1,33 @@
+# executor.py
 import logging
-import signal
-import time
+import multiprocessing
 import tracemalloc
+import time
 import os
 from unittest.mock import patch
 from io import StringIO
 import sys
 
-
 class TimeoutException(Exception):
     pass
 
+def execute_code(code_str, test_input, queue):
+    try:
+        # Redirect stdout to capture output
+        captured_output = StringIO()
+        sys.stdout = captured_output
 
-def timeout_handler(signum, frame):
-    raise TimeoutException("Code execution exceeded the time limit!")
+        # Mock input
+        with patch("builtins.input", side_effect=test_input):
+            exec(code_str, {}, {})  # Empty globals and locals
 
+        # Capture output
+        result = captured_output.getvalue().strip()
+        sys.stdout = sys.__stdout__
+        queue.put((result, True, None))
+    except Exception as e:
+        sys.stdout = sys.__stdout__
+        queue.put((None, False, str(e)))
 
 def execute_code_with_test_cases(code_str, problem_id, test_cases_path, globals_dict=None, locals_dict=None, timeout=5):
     """
@@ -61,50 +74,34 @@ def execute_code_with_test_cases(code_str, problem_id, test_cases_path, globals_
         start_time = time.time()
         tracemalloc.start()
 
-        # Set up the timeout
-        signal.signal(signal.SIGALRM, timeout_handler)
-        signal.alarm(timeout)  # Set the timeout to the specified seconds
+        # Set up the multiprocessing Queue
+        queue = multiprocessing.Queue()
+        process = multiprocessing.Process(target=execute_code, args=(code_str, test_input, queue))
+        process.start()
+        process.join(timeout)
 
-        try:
-            logging.info(f"Executing with input from {input_file}...")
-
-            # Redirect stdout to capture printed output
-            captured_output = StringIO()
-            sys.stdout = captured_output
-
-            # Mock the input function for the exec environment
-            with patch("builtins.input", side_effect=test_input):
-                exec(code_str, globals_dict, locals_dict)
-
-            # Capture printed output
-            result = captured_output.getvalue().strip()
-
-            # Clear the alarm if execution finishes within the time limit
-            signal.alarm(0)
-
-            # Compare the result with the expected output
-            correct = (result == expected_output)
-
-        except TimeoutException:
+        if process.is_alive():
+            process.terminate()
+            process.join()
             correct = False
-            logging.error("Timeout: Code execution exceeded the time limit!")
             result = None
-        except Exception as e:
-            correct = False
-            logging.error(
-                f"Error executing code:\n{code_str}\n"
-                f"With input from {input_file}.\n"
-                f"Input: {test_input}\nExpected output: {expected_output}\nError: {e}",
-                exc_info=True
-            )
-            result = None
-        finally:
-            # Stop tracking memory usage
-            current, peak = tracemalloc.get_traced_memory()
-            tracemalloc.stop()
+            error = "Timeout: Code execution exceeded the time limit!"
+            logging.error(error)
+        else:
+            if not queue.empty():
+                result, correct, error = queue.get()
+                if correct:
+                    logging.info("Execution successful.")
+                else:
+                    logging.error(f"Execution failed: {error}")
+            else:
+                correct = False
+                result = None
+                error = "No output received."
 
-            # Restore original stdout
-            sys.stdout = sys.__stdout__
+        # Stop tracking memory usage
+        current, peak = tracemalloc.get_traced_memory()
+        tracemalloc.stop()
 
         # Calculate runtime
         end_time = time.time()
