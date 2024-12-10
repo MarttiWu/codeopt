@@ -59,6 +59,7 @@ class Optimizer:
                 logits_processor=self.logits_processors,
                 max_tokens=self.config["max_new_tokens"]
             )
+            logging.info(f"in single Optimized Code:\n{response['choices'][0]['text'].strip()}")
             generated_text = response['choices'][0]['text'].strip()
             parsed_response = json.loads(generated_text)
             optimized_code = parsed_response["optimized_code"]
