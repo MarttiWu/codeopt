@@ -2,9 +2,11 @@ import os
 import argparse
 import logging
 import json
-from data_loader import create_data_loaders
+# from DS.group.codeopt.src import data_loader
+from data_loader import create_data_loaders, create_random_subset
 from llama_cpp import Llama
 from optimizer import Optimizer
+from torch.utils.data import DataLoader
 
 
 def setup_logging(log_path):
@@ -63,16 +65,30 @@ def main():
 
     logging.info(f"Testing dataset size: {len(test_loader.dataset)}")
 
+    subset_size = 2
+    test_subset = create_random_subset((test_loader.dataset), subset_size)
+    test_loader = DataLoader(test_subset, batch_size=config["batch_size"], shuffle=False)
+    logging.info(f"Limited testing dataset size: {len(test_loader.dataset)}")
+    
     optimizer = Optimizer(llama_model, config)
+    # calculate the test_loader performance, te provess_batch will return the performance  {"OPT": OPT, "SP": SP}
+    list_sp = []
+    list_opt = []
     for i, batch in enumerate(test_loader):
         # optimizer.process_batch(batch["query"], batch["problem_id"], config["test_cases_path"])
         logging.info("**************************")
         logging.info(f"Processing batch {i}...")
         logging.info("**************************")
-        optimizer.process_batch(batch["query"], batch["problem_id"], config["test_cases_path"], mode=config["mode"])
-    else:
-        logging.error("Invalid mode specified.")
-
+        performance = optimizer.process_batch(batch["query"], batch["problem_id"], config["test_cases_path"], mode=config["mode"])
+        list_sp.append(performance["SP"])
+        list_opt.append(performance["OPT"])
+        
+    # calculate the average of the SP and OPT
+    avg_sp = sum(list_sp) / len(list_sp)
+    avg_opt = sum(list_opt) / len(list_opt)
+    logging.info(f"Average Speedup Rate: {avg_sp}")
+    logging.info(f"Average Percent Optimized: {avg_opt}")
+    
 
 if __name__ == "__main__":
     main()

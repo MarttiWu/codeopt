@@ -37,12 +37,14 @@ class Optimizer:
         for i, query in enumerate(queries):
             logging.info(f"Processing query for Problem ID: {problem_ids[i]}")
             if mode == "single-pass":
-                self.single_pass_optimization(query, problem_ids[i], test_cases_path)
+                performance  = self.single_pass_optimization(query, problem_ids[i], test_cases_path)
             elif mode == "iterative":
-                self.iterative_refinement(query, problem_ids[i], test_cases_path, max_iterations)
+                performance = self.iterative_refinement(query, problem_ids[i], test_cases_path, max_iterations)
             else:
                 logging.error(f"Invalid mode: {mode}. Please choose 'single-pass' or 'iterative'.")
 
+        return performance
+    
     def single_pass_optimization(self, query, problem_id, test_cases_path):
         """
         Perform single-pass optimization on a query.
@@ -62,7 +64,10 @@ class Optimizer:
             optimized_code = parsed_response["optimized_code"]
 
             # Execute and evaluate
-            self._execute_and_evaluate(query, optimized_code, problem_id, test_cases_path)
+            performance = self._execute_and_evaluate(query, optimized_code, problem_id, test_cases_path)
+            
+            return performance
+            
         except Exception as e:
             logging.error(f"Error during single-pass optimization: {e}")
 
@@ -71,8 +76,11 @@ class Optimizer:
         Perform iterative refinement for optimization.
         """
         current_code = query
+        best_performance = {"OPT": 0, "SP": 1.0}
+
         for iteration in range(max_iterations):
             logging.info(f"Starting iteration {iteration + 1} for Problem ID: {problem_id}")
+            logging.info(f"Original Code:\n{query}")
             try:
                 prompt = self._generate_prompt(current_code)
                 response = self.llama_model(
@@ -83,20 +91,31 @@ class Optimizer:
                 generated_text = response['choices'][0]['text'].strip()
                 parsed_response = json.loads(generated_text)
                 optimized_code = parsed_response["optimized_code"]
-
+                # log the result
+                logging.info(f"iter Optimized Code:\n{optimized_code}")
+                
                 # Execute and evaluate
                 query_results = execute_code_with_test_cases(current_code, problem_id, test_cases_path)
+                #log the result
+                logging.info(f"iter Query Results: {query_results}")
+                
                 optimized_results = execute_code_with_test_cases(optimized_code, problem_id, test_cases_path)
-
+                #log the result
+                logging.info(f"iter Optimized Results: {optimized_results}")
+                
                 performance = measure_performance(query_results, optimized_results)
                 logging.info(f"Iteration {iteration + 1} Performance: {performance}")
-
+  
                 # Check for success criteria
                 if performance["OPT"] == 100.0:
                     logging.info(f"Optimization successful after {iteration + 1} iterations.")
                     self._save_result(query, optimized_code)
                     return
 
+                # in order to return te best performance, add up both opt and sp to check if the current performance is better
+                if performance["OPT"] + performance["SP"] > best_performance["OPT"] + best_performance["SP"]:
+                    best_performance = performance                    
+                
                 # Update current code for the next iteration
                 feedback = self._generate_feedback(query_results, optimized_results)
                 current_code = optimized_code + "\n\n# Feedback for next iteration:\n" + feedback
@@ -107,7 +126,7 @@ class Optimizer:
 
         logging.warning(f"Reached maximum iterations for Problem ID: {problem_id}.")
         self._save_result(query, current_code)
-
+        return best_performance
     def _generate_prompt(self, code):
         """
         Generate a prompt for LLM to optimize code.
@@ -143,15 +162,18 @@ class Optimizer:
         """
         logging.info(f"Executing original code for Problem ID: {problem_id}")
         query_results = execute_code_with_test_cases(original_code, problem_id, test_cases_path)
+        logging.info(f"Query Results: {query_results}")
 
         logging.info(f"Executing optimized code for Problem ID: {problem_id}")
         optimized_results = execute_code_with_test_cases(optimized_code, problem_id, test_cases_path)
-
+        logging.info(f"Optimized Results: {optimized_results}")
+        
         logging.info("Evaluating performance...")
         performance = measure_performance(query_results, optimized_results)
         logging.info(f"Performance: {performance}")
 
         self._save_result(original_code, optimized_code)
+        return performance
 
     def _save_result(self, original_code, optimized_code):
         """
