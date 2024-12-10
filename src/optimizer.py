@@ -13,8 +13,22 @@ class OptimizedCodeSchema(BaseModel):
     """
     Define the JSON schema for the optimized code output.
     """
+    original_code: str
     optimized_code: str
+    opt: float
+    sp: float
+    is_correct: bool
+    def __init__(self, original_code, optimized_code, opt, sp):
+        self.original_code = original_code
+        self.optimized_code = optimized_code
+        self.opt = opt
+        self.sp = sp
 
+    def __lt__ (self, other):
+        return [self.sp, self.opt] < [other.sp, self.opt]
+
+    def get_is_correct(self):
+        return self.is_correct
 
 class Optimizer:
     def __init__(self, llama_model, config):
@@ -60,9 +74,13 @@ class Optimizer:
             generated_text = response['choices'][0]['text'].strip()
             parsed_response = json.loads(generated_text)
             optimized_code = parsed_response["optimized_code"]
+            
 
             # Execute and evaluate
-            self._execute_and_evaluate(query, optimized_code, problem_id, test_cases_path)
+            opt, sp = self._execute_and_evaluate(query, optimized_code, problem_id, test_cases_path)
+
+            # Return optimized code
+            return OptimizedCodeSchema(original_code=query, optimized_code=optimized_code, opt=opt, sp=sp, is_correct=optimized_code["correct"])
         except Exception as e:
             logging.error(f"Error during single-pass optimization: {e}")
 
@@ -99,6 +117,7 @@ class Optimizer:
 
                 # Update current code for the next iteration
                 feedback = self._generate_feedback(query_results, optimized_results)
+
                 current_code = optimized_code + "\n\n# Feedback for next iteration:\n" + feedback
 
             except Exception as e:
@@ -152,6 +171,7 @@ class Optimizer:
         logging.info(f"Performance: {performance}")
 
         self._save_result(original_code, optimized_code)
+        return performance["OPT"], performance["SP"]
 
     def _save_result(self, original_code, optimized_code):
         """

@@ -64,14 +64,18 @@ def main():
     logging.info(f"Testing dataset size: {len(test_loader.dataset)}")
 
     optimizer = Optimizer(llama_model, config)
+    results = []
     for i, batch in enumerate(test_loader):
         # optimizer.process_batch(batch["query"], batch["problem_id"], config["test_cases_path"])
         logging.info("**************************")
         logging.info(f"Processing batch {i}...")
         logging.info("**************************")
-        optimizer.process_batch(batch["query"], batch["problem_id"], config["test_cases_path"], mode=config["mode"])
+        result = optimizer.process_batch(batch["query"], batch["problem_id"], config["test_cases_path"], mode=config["mode"])
+        results.append(result)
     else:
         logging.error("Invalid mode specified.")
+
+    results.sort()
 
 
 if __name__ == "__main__":
