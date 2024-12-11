@@ -1,5 +1,6 @@
 # CodeOpt: Code Optimization with Two-Stage Sampling, Few-Shot Learning, and Iterative Self-Reflection
 ![](framework.png)
+
 `CodeOpt` is a cutting-edge framework for optimizing code performance using a combination of **Two-Stage Sampling**, **Few-Shot Learning**, and **Iterative Self-Reflection**. This project leverages advanced techniques such as BM25 for initial preselection, CodeBERT for semantic similarity, and Large Language Models (LLMs) for code optimization.
 
 ---
