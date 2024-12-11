@@ -101,7 +101,7 @@ Here’s an example of config.json:
 If you use this project in your research, please cite:
 ```bash
 @misc{codeopt2024,
-  author = {Your Name},
+  author = {Wu, Meng-Ting and Tsai, Agron and Chen, Leo and Li, Lori},
   title = {CodeOpt: Code Optimization with Two-Stage Sampling, Few-Shot Learning, and Iterative Self-Reflection},
   year = {2024},
   howpublished = {\url{https://github.com/MarttiWu/codeopt}}
