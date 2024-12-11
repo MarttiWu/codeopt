@@ -104,7 +104,7 @@ If you use this project in your research, please cite:
   author = {Your Name},
   title = {CodeOpt: Code Optimization with Two-Stage Sampling, Few-Shot Learning, and Iterative Self-Reflection},
   year = {2024},
-  howpublished = {\url{https://github.com/<your_username>/codeopt}}
+  howpublished = {\url{https://github.com/MarttiWu/codeopt}}
 }
 ```
 ---
