@@ -19,7 +19,7 @@ Follow these steps to set up the project environment:
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/<your_username>/codeopt.git
+git clone https://github.com/MarttiWu/codeopt.git
 cd codeopt
 ```
 
